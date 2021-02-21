@@ -63,3 +63,10 @@ target/
 
 # Notebook Checkpoints
 .ipynb_checkpoints/
+
+# Imported, processed data 
+src/**
+data/**
+
+# Output graphs, etc.
+output/**

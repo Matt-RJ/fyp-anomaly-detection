@@ -1,0 +1,8 @@
+{
+  "metrics": [
+    {
+      "name": "ServiceALambdaA",
+      "path": "../ExportedMetrics/ServiceA/LambdaA.json"
+    }
+  ]
+}

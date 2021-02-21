@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 import matplotlib.pyplot as plt
 
 # Graphs multiple CloudWatch metric data frames as subplots
@@ -24,3 +25,26 @@ def graph_metrics(dfs, xlim=None, ylims=[], ylabels=[], titles=[], figtext=None,
             if (titles[i] is not None):
                 axs[i].set_title(titles[i], fontsize=30)
     plt.show()
+
+# Loads config JSON from a given file path
+def get_config(config_file):
+  with open(config_file, 'r') as file:
+    return json.load(file)
+
+# Loads a data frame from CloudWatch metric JSON
+def json_to_pandas(filepath):
+    with open(filepath) as f:
+        data = json.load(f)
+        dfs = {}
+        
+        for i, df in enumerate(data):
+            # Timestamp conversion
+            for j, timestamp in enumerate(data[i]["Timestamps"]):
+                data[i]["Timestamps"][j] = pd.to_datetime(timestamp)
+
+            df = pd.DataFrame({
+                "Timestamps": data[i]["Timestamps"],
+                "Values": data[i]["Values"]
+            })
+            dfs[data[i]["Label"]] = df
+    return dfs
