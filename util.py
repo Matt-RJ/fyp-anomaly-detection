@@ -72,21 +72,22 @@ def calculate_postrelease_feature(df, df_releases):
     print('Latest in-scope release date: ', latest_timestamp)
 
     out_of_scope_release_indices = [] # Release indices to be dropped
-    for i, release_timestamp in enumerate(df_releases.Timestamps):
-        if (release_timestamp < earliest_timestamp or release_timestamp > latest_timestamp):
+    for i, row in df_releases.iterrows():
+        if (row.Timestamps < earliest_timestamp or row.Timestamps > latest_timestamp):
             out_of_scope_release_indices.append(i)
 
-    df_releases = df_releases.drop(out_of_scope_release_indices)
-    print(f'Dropped {len(out_of_scope_release_indices)} out of scope release date(s)')
+    if (len(out_of_scope_release_indices) > 0):
+        df_releases = df_releases.drop(index=out_of_scope_release_indices)
+        print(f'Dropped {len(out_of_scope_release_indices)} out of scope release date(s)')
 
-    # Adding PostRelease feature, where the 
-    for release_date in df_releases.Timestamps:
+    # Adding PostRelease feature by nearest timestamp
+    for i, df_row in df_releases.iterrows():
         closest = pd.Timedelta.max
-        for i, row in enumerate(df.Timestamps):
-            timedelta = abs(release_date - row)
+        for j, release_row in df.iterrows():
+            timedelta = abs(df_row.Timestamps - release_row.Timestamps)
             if (timedelta < closest):
                 closest = timedelta
             else:
-                df.loc[i, 'PostRelease'] = 1
+                df.loc[j, 'PostRelease'] = 1
                 break
     return df
