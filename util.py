@@ -61,9 +61,9 @@ def load_releases(filepath):
         df = df.rename(columns={'timestamp': 'Timestamps', 'serviceName': 'ServiceNames'})
     return df
 
-# Adds a new feature 'PostRelease' to df, based on the nearest release timestamps in df_releases
-def calculate_postrelease_feature(df, df_releases):
-    df['PostRelease'] = 0
+# Adds a new feature 'ReleasePoint' to df, based on the nearest release timestamps in df_releases
+def calculate_release_point_feature(df, df_releases):
+    df['ReleasePoint'] = 0
 
     # Removing any releases that fall outside of the df metric time range
     earliest_timestamp = df.Timestamps.iloc[1]
@@ -80,7 +80,7 @@ def calculate_postrelease_feature(df, df_releases):
         df_releases = df_releases.drop(index=out_of_scope_release_indices)
         print(f'Dropped {len(out_of_scope_release_indices)} out of scope release date(s)')
 
-    # Adding PostRelease feature by nearest timestamp
+    # Adding ReleasePoint feature by nearest timestamp
     for i, df_row in df_releases.iterrows():
         closest = pd.Timedelta.max
         for j, release_row in df.iterrows():
@@ -88,9 +88,13 @@ def calculate_postrelease_feature(df, df_releases):
             if (timedelta < closest):
                 closest = timedelta
             else:
-                df.loc[j, 'PostRelease'] = 1
+                df.loc[j, 'ReleasePoint'] = 1
                 break
     return df
+
+# TODO: 
+def calculate_post_release_feature(df, timedelta):
+    pass
 
 # Removes anomalies that aren't part of a consecutive group at least min_consec long
 # df - dataframe to remove anomalies from
