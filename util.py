@@ -91,3 +91,29 @@ def calculate_postrelease_feature(df, df_releases):
                 df.loc[j, 'PostRelease'] = 1
                 break
     return df
+
+# Removes anomalies that aren't part of a consecutive group at least min_consec long
+# df - dataframe to remove anomalies from
+# feature - feature name of whether the data point is anomalous
+# anomalous_value - the value an anomalous value has
+# replace_value - the value that a non-anomalous value has
+# min_consec - minimum size of an anomaly cluster - smaller clusters are set with replace_value
+def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
+    potential_anomalies = df.loc[df[feature] == anomalous_value].index.tolist()
+    anomalies = []
+    non_anomalies = []
+    group = [] # A single cluster of neighboring anomalies
+    for i, value in enumerate(potential_anomalies):
+        group.append(value)
+        if ((value+1) not in potential_anomalies): # Non-neighbouring anomaly found - group end found
+            if (len(group) >= min_consec): # Cluster of anomalies big enough to stay
+                anomalies.extend(group) 
+            else: # Anomalies in group removed
+                print(f'Dropping {len(group)} potential {"anomaly" if len(group) == 1 else "anomalies"}')
+                non_anomalies.extend(group)
+            potential_anomalies = [j for j in potential_anomalies if j not in group]
+            group = []
+
+    df.loc[non_anomalies, feature] = replace_value
+    print(f'Anomalies dropped for feature "{feature}": {len(non_anomalies)}')
+    return df
