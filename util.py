@@ -61,9 +61,12 @@ def load_releases(filepath):
         df = df.rename(columns={'timestamp': 'Timestamps', 'serviceName': 'ServiceNames'})
     return df
 
-# Adds a new feature 'ReleasePoint' to df, based on the nearest release timestamps in df_releases
+# Adds a new feature 'Release_Point' to df, based on the nearest release timestamps in df_releases
 def calculate_release_point_feature(df, df_releases):
-    df['ReleasePoint'] = 0
+    df['Release_Point'] = 0
+    if (type(df_releases) == None):
+        print('No releases - All release points set to 0')
+        return df
 
     # Removing any releases that fall outside of the df metric time range
     earliest_timestamp = df.Timestamps.iloc[1]
@@ -80,7 +83,7 @@ def calculate_release_point_feature(df, df_releases):
         df_releases = df_releases.drop(index=out_of_scope_release_indices)
         print(f'Dropped {len(out_of_scope_release_indices)} out of scope release date(s)')
 
-    # Adding ReleasePoint feature by nearest timestamp
+    # Adding Release_Point feature by nearest timestamp
     for i, df_row in df_releases.iterrows():
         closest = pd.Timedelta.max
         for j, release_row in df.iterrows():
@@ -88,13 +91,27 @@ def calculate_release_point_feature(df, df_releases):
             if (timedelta < closest):
                 closest = timedelta
             else:
-                df.loc[j, 'ReleasePoint'] = 1
+                df.loc[j, 'Release_Point'] = 1
                 break
     return df
 
-# TODO: 
-def calculate_post_release_feature(df, timedelta):
-    pass
+def calculate_post_release_feature(df, post_release_timedelta):
+    if 'Release_Point' not in df:
+        print('Missing \'Release_Point\' feature. Run util.calculate_release_point_feature() first (df not modified).')
+        return df
+    df['Post_Release'] = 0
+    release_points = df.loc[df['Release_Point'] == 1]
+    post_releases = []
+    for i, row in release_points.iterrows():
+        j = -1
+        while (i+j < len(df)-1):
+            j += 1
+            if (j != 0 and df.loc[i+j, 'Release_Point'] == 1): # Next release point found
+                break
+            elif ((df.loc[i+j, 'Timestamps'] - row.Timestamps) <= post_release_timedelta): # Within post release treshold
+                post_releases.append(i+j)
+    df.loc[post_releases, 'Post_Release'] = 1
+    return df
 
 # Removes anomalies that aren't part of a consecutive group at least min_consec long
 # df - dataframe to remove anomalies from
@@ -113,7 +130,7 @@ def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
             if (len(group) >= min_consec): # Cluster of anomalies big enough to stay
                 anomalies.extend(group) 
             else: # Anomalies in group removed
-                print(f'Dropping {len(group)} potential {"anomaly" if len(group) == 1 else "anomalies"}')
+                # print(f'Dropping {len(group)} potential {"anomaly" if len(group) == 1 else "anomalies"}')
                 non_anomalies.extend(group)
             potential_anomalies = [j for j in potential_anomalies if j not in group]
             group = []
