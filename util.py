@@ -1,6 +1,9 @@
 import pandas as pd
 import json
+import numpy as np
 import matplotlib.pyplot as plt
+
+### Isolation Forest
 
 # Graphs multiple CloudWatch metric data frames as subplots
 def graph_metrics(dfs, xlim=None, ylims=[], ylabels=[], titles=[], figtext=None, suptitle=None):
@@ -138,3 +141,46 @@ def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
     df.loc[non_anomalies, feature] = replace_value
     print(f'Anomalies dropped for feature "{feature}": {len(non_anomalies)}')
     return df
+
+
+### K-Means
+# Based on http://amid.fish/anomaly-detection-with-k-means-clustering, modified for this project.
+
+# Splits up a dataframe into overlapping segments
+def window_df(df, segment_len=32, slide_len=2):
+    # Removing n oldest rows so segments divide evenly into df rows
+    to_remove = len(df) % segment_len
+    if (to_remove > 0):
+        df = df.iloc[to_remove:]
+        print(f'Dropped {to_remove} row(s) from the beginning')
+
+    segments = []
+    for start_pos in range(0, len(df), slide_len):
+        end_pos = start_pos + segment_len
+        segment = df[start_pos:end_pos].copy()
+        if len(segment) != segment_len: #
+            continue
+        segments.append(segment)
+    return (df, segments)
+
+# Segments are normalized to ensure they can be stitched back together later.
+def normalize_segments(segments, feature, segment_len):
+    window_rads = np.linspace(0, np.pi, segment_len)
+    window = np.sin(window_rads) ** 2
+    windowed_segments = []
+    for i, segment in enumerate(segments):
+        windowed_segment = segment.copy()[feature] * window
+        # windowed_segment[feature] = windowed_segment[feature] * window
+        windowed_segments.append(windowed_segment)
+    return windowed_segments
+
+# Src: https://github.com/mrahtz/sanger-machine-learning-workshop/blob/master/learn_utils.py (modified for data frames)
+# Splits a data frame into a list, where each element is a slice of the data frame window_len long, sliding by slide_len each time.
+def sliding_chunker(df, window_len, slide_len):
+    chunks = []
+    for pos in range(0, len(df), slide_len):
+        chunk = df.iloc[pos:pos+window_len].copy()
+        if (len(chunk) != window_len):
+            continue
+        chunks.append(chunk)
+    return chunks
