@@ -1,3 +1,5 @@
 # FYP Anomaly Detection
 
-todo
+This repo contains a part of my final year project for Applied Computing.
+
+TODO

@@ -312,3 +312,72 @@ def reconstruction_plot(df, start=None, end=None, suptitle='Reconstruction'):
 
     plt.savefig('output/k-means/full-reconstruction.pdf')
     plt.show()
+
+def anomaly_plot(df, anomaly_feature):
+    anomalies = df.loc[(df[anomaly_feature] == 1)]
+    fig = plt.figure()
+    plt.plot(df.Timestamps, df.Values)
+    plt.plot(anomalies.Timestamps, anomalies.Values, 'o', color='red')
+    plt.show()
+
+def anomaly_plot_with_releases(df, metric_name, post_release_threshold):
+    import numpy.ma as ma
+
+    values_inside_release_threshold = df.loc[df.Post_Release == 1]
+    values_outside_release_threshold = df.loc[df.Post_Release == 0]
+    release_points = df.loc[df.Release_Point == 1]
+
+    # Anomalies not soon after a release
+    anomalies = df.loc[(df.Anomalies == 1) & (df.Post_Release == 0)]
+
+    # Anomalies soon after a release
+    post_release_anomalies = df.loc[(df.Anomalies == 1) & (df.Post_Release == 1)]
+
+    from matplotlib.pyplot import figure
+    plt.figure(figsize=(30,15))
+    plt.xlabel("Timestamps")
+    plt.ylabel(metric_name)
+
+
+    # Not close to release
+    mc = ma.array(df.Values.values)
+
+    mc[(df.Post_Release == 1) | (df.Gap)] = ma.masked
+    plt.plot(df.Timestamps.values, mc, color='silver')
+
+    # Close to release
+    mc = ma.array(df.Values.values)
+    mc[(df.Post_Release == 0) | (df.Gap)] = ma.masked
+    plt.plot(df.Timestamps.values, mc, color='dimgrey')
+
+    plt.plot(anomalies.Timestamps, anomalies.Values, 'o', color='blue')
+    plt.plot(post_release_anomalies.Timestamps, post_release_anomalies.Values, 's', color='red')
+
+    # Release date lines
+    for release in release_points.Timestamps:
+        plt.axvline(release, color='purple')
+
+    # plt.title(f'K-Means anomaly detection - {SERVICE}, {LAMBDA} - {METRIC}')
+    plt.title('K-Means Anomaly Detection')
+    plt.legend([
+        f'Values within release threshold ({post_release_threshold})',
+        f'Values outside release threshold',
+        'Anomalies outside the release threshold',
+        'Anomalies within the release threshold',
+        'Release points'
+    ], loc=2)
+
+    # plt.ylim(0, 2000)
+
+    # # Output .png & .pdf files
+    # import os
+
+    # savedir = f'{os.getcwd()}\\output\\k-means\\{SERVICE}\\{LAMBDA}'
+    # if not os.path.exists(savedir):
+    #     os.makedirs(savedir)
+    # plt.savefig(f'{savedir}\\{METRIC}.pdf', transparent=True, bbox_tight="inches")
+    # plt.savefig(f'{savedir}\\{METRIC}.png')
+
+    plt.show()
+
+    print(f'Post-release anomalies: {len(post_release_anomalies)} of {len(anomalies)} total values anomalies')
