@@ -150,7 +150,7 @@ def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
 # Splits up a dataframe into overlapping segments
 def window_df(df, segment_len=32, slide_len=2):
     # Removing n oldest rows so segments divide evenly into df rows
-    to_remove = len(df) % segment_len
+    to_remove = len(df) % slide_len
     if (to_remove > 0):
         df = df.iloc[to_remove:]
         print(f'Dropped {to_remove} row(s) from the beginning')
@@ -159,7 +159,7 @@ def window_df(df, segment_len=32, slide_len=2):
     for start_pos in range(0, len(df), slide_len):
         end_pos = start_pos + segment_len
         segment = df[start_pos:end_pos].copy()
-        if len(segment) != segment_len: #
+        if len(segment) != segment_len:
             continue
         segments.append(segment)
     return (df.reset_index(), segments)
