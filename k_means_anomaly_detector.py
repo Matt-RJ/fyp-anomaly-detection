@@ -52,17 +52,16 @@ class KMeansAnomalyDetector:
     self.df = util.json_to_pandas(filepath)[metric_name]
     print('Loaded.')
 
-  def load_df_releases(self, filepath, service_name):
+  def load_df_releases(self, filepath):
     self.df_releases = util.load_releases(filepath)
 
-  def clean_df(self): # TODO: Fix error
+  def clean_df(self):
     """Cleans the currently-loaded data frame."""
     if (self.df is None):
       raise TypeError('No data frame loaded. Use load_df first.')
 
     # Gap feature for not drawing lines between two distant data points when plotting
     self.df['Gap'] = (self.df.Timestamps.diff() >= self.graph_gap_threshold).astype(int)
-    # TODO: Other cleanup?
 
   def create_release_features(self, service_name):
     """Creates two features in the data frame: Release_Points and Post_Releases."""
