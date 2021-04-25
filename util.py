@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 
 ### Isolation Forest
@@ -161,20 +162,20 @@ def window_df(df, segment_len=32, slide_len=2):
         if len(segment) != segment_len: #
             continue
         segments.append(segment)
-    return (df, segments)
+    return (df.reset_index(), segments)
 
-# Segments are normalized to ensure they can be stitched back together later.
-def normalize_segments(segments, feature, segment_len):
+# Segments are normalised to ensure they can be stitched back together later.
+def normalise_segments(segments, feature, segment_len):
     window_rads = np.linspace(0, np.pi, segment_len)
     window = np.sin(window_rads) ** 2
     windowed_segments = []
     for i, segment in enumerate(segments):
-        windowed_segment = segment.copy()[feature] * window
-        # windowed_segment[feature] = windowed_segment[feature] * window
+        windowed_segment = segment.copy()
+        windowed_segment[feature] *= window
         windowed_segments.append(windowed_segment)
     return windowed_segments
 
-# Src: https://github.com/mrahtz/sanger-machine-learning-workshop/blob/master/learn_utils.py (modified for data frames)
+# Based on: https://github.com/mrahtz/sanger-machine-learning-workshop/blob/master/learn_utils.py (modified for data frames)
 # Splits a data frame into a list, where each element is a slice of the data frame window_len long, sliding by slide_len each time.
 def sliding_chunker(df, window_len, slide_len):
     chunks = []
@@ -184,3 +185,130 @@ def sliding_chunker(df, window_len, slide_len):
             continue
         chunks.append(chunk)
     return chunks
+
+# Plots subplots for windowed segments
+def segment_plot(segments, suptitle='Figure', rows=3, cols=3):
+    old_font_size = matplotlib.rcParams['font.size']
+    matplotlib.rc('font', **{ 'size': 20 })
+    fig = plt.figure(figsize=(30,15))
+    fig.suptitle(suptitle)
+    n = 1
+    for row in range(rows):
+        for col in range(cols):
+            axs = plt.subplot(rows, cols, n)
+            axs.set_title(f'segments[{n-1}]')
+            axs.tick_params(length=15, width=2)
+            plt.plot(segments[n-1].Timestamps, segments[n-1].Values)
+            n += 1
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig('output/k-means/segments.pdf', bbox_inches='tight')
+    plt.show()
+    matplotlib.rc('font', **{ 'size': old_font_size })
+
+def normalisation_plot(segments, segment_n, suptitle='Figure'):
+    old_font_size = matplotlib.rcParams['font.size']
+    matplotlib.rc('font', **{ 'size': 20 })
+    fig, axs = plt.subplots(1,3, figsize=(30,10))
+    fig.suptitle(suptitle)
+    axs[0].set_title('')
+
+    segment = segments[segment_n].reset_index()
+
+    bell_curve = np.sin(np.linspace(0, np.pi, len(segments[segment_n]))) ** 2
+    axs[0].plot(bell_curve)
+    axs[0].set_title('Bell curve')
+
+    axs[1].plot(segment.Values)
+    axs[1].set_title('Segment')
+
+    axs[2].plot(bell_curve * segment.Values)
+    axs[2].set_title('Normalised segment')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig('output/k-means/normalisation.pdf', bbox_inches='tight')
+    plt.show()
+    matplotlib.rc('font', **{ 'size': old_font_size })
+
+def single_segment_reconstruction_plot(df, segments, segment_n, clusterer, segment_len, slide_len):
+    old_font_size = matplotlib.rcParams['font.size']
+    matplotlib.rc('font', **{ 'size': 16 })
+
+    segment = segments[segment_n].copy()
+    window_rads = np.linspace(0, np.pi, segment_len)
+    window = np.sin(window_rads) ** 2
+    normalised_segment = segment.copy()
+    normalised_segment.Values *= window
+
+    nearest_centroid_idx = clusterer.predict([normalised_segment.Values])[0]
+    centroids = clusterer.cluster_centers_
+    nearest_centroid = np.copy(centroids[nearest_centroid_idx])
+
+    fig = plt.figure(figsize=(15,10))
+    plt.tick_params(length=15, width=2)
+    plt.title('K-Means: Single Segment Reconstruction')
+    plt.plot(segment.Timestamps, segment.Values, label='Original Segment')
+
+    plt.plot(normalised_segment.Timestamps, normalised_segment.Values, label='Normalised Segment')
+
+    plt.plot(segment.Timestamps, nearest_centroid, label='Nearest Centroid')
+    plt.savefig('output/k-means/single-segment-reconstruction.pdf', bbox_tight='inches')
+
+    plt.legend()
+    plt.show()
+    matplotlib.rc('font', **{ 'size': old_font_size })
+
+# Reconstructs the original graph by selecting the predicted cluster for each segment.
+# Creates three new features - Reconstructed_Values, Reconstruction_Error, and Anomalies.abs
+def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
+    window_rads = np.linspace(0, np.pi, segment_len)
+    window = np.sin(window_rads) ** 2
+
+    slide_len = int(segment_len/2)
+    test_segments = sliding_chunker(df, segment_len, slide_len)
+    reconstruction = np.zeros(len(df))
+
+    for i, segment in enumerate(test_segments):
+        segment = segment.copy()
+        segment[feature] *= window
+        nearest_centroid_idx = clusterer.predict([segment[feature]])[0]
+        centroids = clusterer.cluster_centers_
+        nearest_centroid = np.copy(centroids[nearest_centroid_idx])
+
+        pos = int(i * slide_len)
+        reconstruction[pos:pos+segment_len] += nearest_centroid[0:len(reconstruction[pos:pos+segment_len])]
+
+    df['Reconstructed_Values'] = reconstruction
+    df['Reconstruction_Error'] = abs(df['Reconstructed_Values'] - df.Values)
+    
+    # Anomalies defined by highest reconstruction errors
+    df['Anomalies'] = (
+        df['Reconstruction_Error'] > df['Reconstruction_Error'].quantile(reconstruction_quantile)
+    ).astype(int)
+
+    return df
+
+def reconstruction_plot(df, start=None, end=None, suptitle='Reconstruction'):
+    x = None
+    if (start != None and end != None):
+        df = df[start:end]
+
+    anomalies = df.loc[df.Anomalies == 1]
+
+    fig, axs = plt.subplots(4,1, figsize=(30,15))
+    fig.suptitle(suptitle)
+    axs[0].plot(df.Timestamps, df.Values, label='Original Values')
+    axs[0].plot(anomalies.Timestamps, anomalies.Values, 'o', label='Anomalies')
+    axs[0].legend(loc=2)
+
+    axs[1].plot(df.Timestamps, df.Reconstructed_Values, color='yellow', label='Reconstructed Values')
+    axs[1].legend(loc=2)
+
+    axs[2].plot(df.Timestamps, df.Reconstruction_Error, color='red', label='Reconstruction Error')
+    axs[2].legend(loc=2)
+
+    axs[3].plot(df.Timestamps, df.Values, label='Original Values')
+    axs[3].plot(df.Timestamps, df.Reconstructed_Values, color='yellow', label='Reconstructed Values')
+    axs[3].legend(loc=2)
+
+    plt.savefig('output/k-means/full-reconstruction.pdf')
+    plt.show()
