@@ -1,24 +1,34 @@
 from k_means_anomaly_detector import KMeansAnomalyDetector
+from isolation_forest_anomaly_detector import IsolationForestAnomalyDetector
 
-detector = KMeansAnomalyDetector(
-  n_clusters=150,
-  segment_len=32,
-  slide_len=32
-)
-detector.load_df('../ExportedMetrics/ServiceA/LambdaB.json', 'Duration')
-# detector.clean_df()
-detector.train('Values', (0, 2000))
-# detector.load_df('../ExportedMetrics/ServiceA/LambdaB.json', 'Duration')
-detector.test()
-detector.anomaly_plot()
-# print(detector.df)
+def test_k_means():
+  print('Testing K-Means Anomaly Detection')
+  detector = KMeansAnomalyDetector(
+    n_clusters=150,
+    segment_len=32,
+    slide_len=32
+  )
+  detector.release_train_test(
+    df_train_filepath    = '../ExportedMetrics/ServiceA/LambdaA.json',
+    df_test_filepath     = '../ExportedMetrics/ServiceA/LambdaA.json',
+    df_releases_filepath = '../ExportedMetrics/releases.json',
+    metric_name          = 'Duration',
+    df_test_service_name = 'ServiceA'
+  )
+  detector.reconstruction_plot()
 
-# detector.release_train_test(
-#   df_train_filepath    = '../ExportedMetrics/ServiceA/LambdaA.json',
-#   df_test_filepath     = '../ExportedMetrics/ServiceA/LambdaA.json',
-#   df_releases_filepath = '../ExportedMetrics/releases.json',
-#   metric_name          = 'Duration',
-#   df_test_service_name = 'ServiceA'
-# )
+def test_isolation_forest():
+  print('Testing Isolation Forest Anomaly Detection')
+  detector = IsolationForestAnomalyDetector()
+  detector.contamination = 0.01
+  detector.release_train_test(
+    df_train_filepath    = '../ExportedMetrics/ServiceA/LambdaA.json',
+    df_test_filepath     = '../ExportedMetrics/ServiceA/LambdaA.json',
+    df_releases_filepath = '../ExportedMetrics/releases.json',
+    metric_name          = 'Duration',
+    df_test_service_name = 'ServiceA'
+  )
 
-# # detector.reconstruction_plot()
+test_k_means()
+print('\n\n')
+test_isolation_forest()

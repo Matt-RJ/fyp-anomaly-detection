@@ -2,7 +2,7 @@ from datetime import timedelta
 import util
 from abc import ABC, abstractmethod
 
-class AnomalyDetector(ABC):
+class AnomalyDetector(ABC, object):
   """Abstract base class for anomaly detectors."""
 
   @abstractmethod
@@ -66,7 +66,7 @@ class AnomalyDetector(ABC):
   def load_df(self, filepath, metric_name):
     """Loads an exported CloudWatch .json file and converts it to a data frame."""
     print(f'Loading df from {filepath}...')
-    self._df = util.json_to_pandas(filepath)[metric_name]
+    self.df = util.json_to_pandas(filepath)[metric_name]
     print('Loaded.')
 
   @property
@@ -78,7 +78,7 @@ class AnomalyDetector(ABC):
     self._df_releases = df_releases
 
   def load_df_releases(self, filepath):
-    self._df_releases = util.load_releases(filepath)
+    self.df_releases = util.load_releases(filepath)
 
   @property
   def train_end_datetime(self):
@@ -98,10 +98,10 @@ class AnomalyDetector(ABC):
 
   def create_release_features(self, service_name):
     """Creates two features in the data frame: Release_Points and Post_Releases."""
-    if (self._df is None):
-      raise TypeError('No df loaded. Use .df(filepath) first.')
-    if (self._df_releases is None):
-      raise TypeError('No df_releases loaded. Use .df_releases(filepath) first.')
+    if (self.df is None):
+      raise TypeError('No df loaded. Use .load_df(filepath) first.')
+    if (self.df_releases is None):
+      raise TypeError('No df_releases loaded. Use .load_df_releases(filepath) first.')
 
     # Some microservices are grouped together during release
     release_service_map = {
@@ -123,16 +123,21 @@ class AnomalyDetector(ABC):
     self.df = util.calculate_post_release_feature(self.df, self.post_release_threshold)
 
   @abstractmethod
-  def train(self, feature, df_slice=None):
+  def train(self, feature='Values', df_slice=None):
     """Trains the model with the currently-loaded data frame."""
     pass
 
   @abstractmethod
-  def test(self):
+  def test(self, feature='Values'):
     """Performs anomaly detection with the previously-trained data."""
     pass
 
   @abstractmethod
   def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name):
     """Performs training on a given train metric, then performs anomaly detection on a given test metric. Displays and counts post-release anomalies."""
+    pass
+
+  @abstractmethod
+  def anomaly_plot(self, title='Figure'):
+    """Displays a graph with anomalies."""
     pass

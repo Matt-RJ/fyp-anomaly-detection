@@ -272,7 +272,7 @@ def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
     Creates three new features - Reconstructed_Values, Reconstruction_Error, and Anomalies.
     """
     window_rads = np.linspace(0, np.pi, segment_len)
-    window = np.sin(window_rads) ** 2
+    bell_curve = np.sin(window_rads) ** 2
 
     slide_len = int(segment_len/2)
     test_segments = sliding_chunker(df, segment_len, slide_len)
@@ -280,13 +280,14 @@ def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
 
     for i, segment in enumerate(test_segments):
         segment = segment.copy()
-        segment[feature] *= window
+        segment[feature] *= bell_curve
         nearest_centroid_idx = clusterer.predict([segment[feature]])[0]
         centroids = clusterer.cluster_centers_
         nearest_centroid = np.copy(centroids[nearest_centroid_idx])
-
         pos = int(i * slide_len)
         reconstruction[pos:pos+segment_len] += nearest_centroid[0:len(reconstruction[pos:pos+segment_len])]
+
+    # TODO: Fix reconstruction values of first and final segments dropping off rapidly.
 
     df['Reconstructed_Values'] = reconstruction
     df['Reconstruction_Error'] = abs(df['Reconstructed_Values'] - df.Values)
@@ -324,14 +325,14 @@ def reconstruction_plot(df, start=None, end=None, suptitle='Reconstruction'):
     plt.savefig('output/k-means/full-reconstruction.pdf')
     plt.show()
 
-def anomaly_plot(df, anomaly_feature):
+def anomaly_plot(df, anomaly_feature, title='Figure'):
     anomalies = df.loc[(df[anomaly_feature] == 1)]
-    fig = plt.figure()
+    plt.title(title)
     plt.plot(df.Timestamps, df.Values)
     plt.plot(anomalies.Timestamps, anomalies.Values, 'o', color='red')
     plt.show()
 
-def anomaly_plot_with_releases(df, metric_name, post_release_threshold):
+def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_feature='Anomalies', title='Figure'):
     import numpy.ma as ma
 
     values_inside_release_threshold = df.loc[df.Post_Release == 1]
@@ -339,10 +340,10 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold):
     release_points = df.loc[df.Release_Point == 1]
 
     # Anomalies not soon after a release
-    anomalies = df.loc[(df.Anomalies == 1) & (df.Post_Release == 0)]
+    anomalies = df.loc[(df[anomaly_feature] == 1) & (df.Post_Release == 0)]
 
     # Anomalies soon after a release
-    post_release_anomalies = df.loc[(df.Anomalies == 1) & (df.Post_Release == 1)]
+    post_release_anomalies = df.loc[(df[anomaly_feature] == 1) & (df.Post_Release == 1)]
 
     from matplotlib.pyplot import figure
     plt.figure(figsize=(30,15))
@@ -368,8 +369,7 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold):
     for release in release_points.Timestamps:
         plt.axvline(release, color='purple')
 
-    # plt.title(f'K-Means anomaly detection - {SERVICE}, {LAMBDA} - {METRIC}')
-    plt.title('K-Means Anomaly Detection')
+    plt.title(title)
     plt.legend([
         f'Values within release threshold ({post_release_threshold})',
         f'Values outside release threshold',
