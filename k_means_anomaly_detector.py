@@ -1,8 +1,6 @@
 from anomaly_detector import AnomalyDetector
 from sklearn.cluster import KMeans
 import util
-from statsmodels.tsa.seasonal import seasonal_decompose
-
 
 class KMeansAnomalyDetector(AnomalyDetector):
   def __init__(self, n_clusters=150, segment_len=32, slide_len=2):
@@ -78,7 +76,7 @@ class KMeansAnomalyDetector(AnomalyDetector):
       df = df[df_slice[0]:df_slice[1]]
     print('Starting training on currently-loaded data frame...')
     df, segments = util.window_df(df, segment_len=self.segment_len, slide_len=self.slide_len)
-    windowed_segments = util.normalise_segments(segments, feature=feature, segment_len=self.segment_len)
+    windowed_segments = util.normalize_segments(segments, feature=feature, segment_len=self.segment_len)
 
     X = list(map(lambda x: x[feature], windowed_segments))
     n_clusters = self.n_clusters

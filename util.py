@@ -4,10 +4,10 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-### Isolation Forest
+### General
 
-# Graphs multiple CloudWatch metric data frames as subplots
 def graph_metrics(dfs, xlim=None, ylims=[], ylabels=[], titles=[], figtext=None, suptitle=None):
+    """Graphs multiple CloudWatch metric data frames as subplots."""
     fig, axs = plt.subplots(len(dfs), figsize = (30,10), sharex=True)
     fig.set_figheight(15)
     if (suptitle is not None):
@@ -30,13 +30,13 @@ def graph_metrics(dfs, xlim=None, ylims=[], ylabels=[], titles=[], figtext=None,
                 axs[i].set_title(titles[i], fontsize=30)
     plt.show()
 
-# Loads config JSON from a given file path
 def get_config(config_file):
-  with open(config_file, 'r') as file:
-    return json.load(file)
+    """Loads config JSON from a given file path."""
+    with open(config_file, 'r') as file:
+        return json.load(file)
 
-# Loads a data frame from CloudWatch metric JSON
 def json_to_pandas(filepath):
+    """Loads a data frame from CloudWatch metric JSON file."""
     with open(filepath) as f:
         data = json.load(f)
         dfs = {}
@@ -53,8 +53,8 @@ def json_to_pandas(filepath):
             dfs[data[i]["Label"]] = df
     return dfs
 
-# Loads service release info from a json file
 def load_releases(filepath):
+    """Loads service release info from a json file."""
     with open(filepath) as f:
         df = pd.DataFrame(json.load(f))
 
@@ -65,8 +65,8 @@ def load_releases(filepath):
         df = df.rename(columns={'timestamp': 'Timestamps', 'serviceName': 'ServiceNames'})
     return df
 
-# Adds a new feature 'Release_Point' to df, based on the nearest release timestamps in df_releases
 def calculate_release_point_feature(df, df_releases):
+    """Adds a new feature 'Release_Point' to df, based on the nearest release timestamps in df_releases."""
     df['Release_Point'] = 0
     if (type(df_releases) == None):
         print('No releases - All release points set to 0')
@@ -100,6 +100,7 @@ def calculate_release_point_feature(df, df_releases):
     return df
 
 def calculate_post_release_feature(df, post_release_timedelta):
+    """Adds a new feature 'Post_Releases' to df."""
     if 'Release_Point' not in df:
         print('Missing \'Release_Point\' feature. Run util.calculate_release_point_feature() first (df not modified).')
         return df
@@ -117,13 +118,15 @@ def calculate_post_release_feature(df, post_release_timedelta):
     df.loc[post_releases, 'Post_Release'] = 1
     return df
 
-# Removes anomalies that aren't part of a consecutive group at least min_consec long
-# df - dataframe to remove anomalies from
-# feature - feature name of whether the data point is anomalous
-# anomalous_value - the value an anomalous value has
-# replace_value - the value that a non-anomalous value has
-# min_consec - minimum size of an anomaly cluster - smaller clusters are set with replace_value
 def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
+    """
+    Removes anomalies that aren't part of a consecutive group at least min_consec long\n
+    df: dataframe to remove anomalies from\n
+    feature: feature name of whether the data point is anomalous\n
+    anomalous_value: the value an anomalous value has\n
+    replace_value: the value that a non-anomalous value has\n
+    min_consec: minimum size of an anomaly cluster - smaller clusters are set with replace_value
+    """
     potential_anomalies = df.loc[df[feature] == anomalous_value].index.tolist()
     anomalies = []
     non_anomalies = []
@@ -147,8 +150,8 @@ def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
 ### K-Means
 # Based on http://amid.fish/anomaly-detection-with-k-means-clustering, modified for this project.
 
-# Splits up a dataframe into overlapping segments
 def window_df(df, segment_len=32, slide_len=2):
+    """Splits up a dataframe into overlapping segments."""
     # Removing n oldest rows so segments divide evenly into df rows
     to_remove = len(df) % slide_len
     if (to_remove > 0):
@@ -164,20 +167,23 @@ def window_df(df, segment_len=32, slide_len=2):
         segments.append(segment)
     return (df.reset_index(), segments)
 
-# Segments are normalised to ensure they can be stitched back together later.
-def normalise_segments(segments, feature, segment_len):
+# Segments are normalized to ensure they can be stitched back together later.
+def normalize_segments(segments, feature, segment_len):
+    """Normalizes segments so that each segment's values taper off to 0 nearing the start/end of the segment."""
     window_rads = np.linspace(0, np.pi, segment_len)
-    window = np.sin(window_rads) ** 2
-    windowed_segments = []
+    bell_curve = np.sin(window_rads) ** 2
+    normalized_segments = []
     for i, segment in enumerate(segments):
         windowed_segment = segment.copy()
-        windowed_segment[feature] *= window
-        windowed_segments.append(windowed_segment)
-    return windowed_segments
+        windowed_segment[feature] *= bell_curve
+        normalized_segments.append(windowed_segment)
+    return normalized_segments
 
-# Based on: https://github.com/mrahtz/sanger-machine-learning-workshop/blob/master/learn_utils.py (modified for data frames)
-# Splits a data frame into a list, where each element is a slice of the data frame window_len long, sliding by slide_len each time.
 def sliding_chunker(df, window_len, slide_len):
+    """
+    Splits a data frame into a list, where each element is a slice of the data frame window_len long, sliding by slide_len each time.\n
+    Based on: https://github.com/mrahtz/sanger-machine-learning-workshop/blob/master/learn_utils.py (modified for data frames)
+    """
     chunks = []
     for pos in range(0, len(df), slide_len):
         chunk = df.iloc[pos:pos+window_len].copy()
@@ -186,8 +192,8 @@ def sliding_chunker(df, window_len, slide_len):
         chunks.append(chunk)
     return chunks
 
-# Plots subplots for windowed segments
 def segment_plot(segments, suptitle='Figure', rows=3, cols=3):
+    """Plots subplots for windowed segments"""
     old_font_size = matplotlib.rcParams['font.size']
     matplotlib.rc('font', **{ 'size': 20 })
     fig = plt.figure(figsize=(30,15))
@@ -205,7 +211,8 @@ def segment_plot(segments, suptitle='Figure', rows=3, cols=3):
     plt.show()
     matplotlib.rc('font', **{ 'size': old_font_size })
 
-def normalisation_plot(segments, segment_n, suptitle='Figure'):
+def normalization_plot(segments, segment_n, suptitle='Figure'):
+    """Plots a bell curve, windowed segment, and normalized segment in 3 subplots."""
     old_font_size = matplotlib.rcParams['font.size']
     matplotlib.rc('font', **{ 'size': 20 })
     fig, axs = plt.subplots(1,3, figsize=(30,10))
@@ -222,24 +229,25 @@ def normalisation_plot(segments, segment_n, suptitle='Figure'):
     axs[1].set_title('Segment')
 
     axs[2].plot(bell_curve * segment.Values)
-    axs[2].set_title('Normalised segment')
+    axs[2].set_title('normalized segment')
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig('output/k-means/normalisation.pdf', bbox_inches='tight')
+    plt.savefig('output/k-means/normalization.pdf', bbox_inches='tight')
     plt.show()
     matplotlib.rc('font', **{ 'size': old_font_size })
 
-def single_segment_reconstruction_plot(df, segments, segment_n, clusterer, segment_len, slide_len):
+def single_segment_reconstruction_plot(segments, segment_n, clusterer, segment_len):
+    """Plots the original segment segments[segment_n], its normalized version, and its nearest centroid."""
     old_font_size = matplotlib.rcParams['font.size']
     matplotlib.rc('font', **{ 'size': 16 })
 
     segment = segments[segment_n].copy()
     window_rads = np.linspace(0, np.pi, segment_len)
     window = np.sin(window_rads) ** 2
-    normalised_segment = segment.copy()
-    normalised_segment.Values *= window
+    normalized_segment = segment.copy()
+    normalized_segment.Values *= window
 
-    nearest_centroid_idx = clusterer.predict([normalised_segment.Values])[0]
+    nearest_centroid_idx = clusterer.predict([normalized_segment.Values])[0]
     centroids = clusterer.cluster_centers_
     nearest_centroid = np.copy(centroids[nearest_centroid_idx])
 
@@ -248,7 +256,7 @@ def single_segment_reconstruction_plot(df, segments, segment_n, clusterer, segme
     plt.title('K-Means: Single Segment Reconstruction')
     plt.plot(segment.Timestamps, segment.Values, label='Original Segment')
 
-    plt.plot(normalised_segment.Timestamps, normalised_segment.Values, label='Normalised Segment')
+    plt.plot(normalized_segment.Timestamps, normalized_segment.Values, label='normalized Segment')
 
     plt.plot(segment.Timestamps, nearest_centroid, label='Nearest Centroid')
     plt.savefig('output/k-means/single-segment-reconstruction.pdf', bbox_tight='inches')
@@ -257,9 +265,12 @@ def single_segment_reconstruction_plot(df, segments, segment_n, clusterer, segme
     plt.show()
     matplotlib.rc('font', **{ 'size': old_font_size })
 
-# Reconstructs the original graph by selecting the predicted cluster for each segment.
-# Creates three new features - Reconstructed_Values, Reconstruction_Error, and Anomalies.abs
+
 def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
+    """
+    Reconstructs the original graph by selecting the predicted cluster for each segment.\n
+    Creates three new features - Reconstructed_Values, Reconstruction_Error, and Anomalies.
+    """
     window_rads = np.linspace(0, np.pi, segment_len)
     window = np.sin(window_rads) ** 2
 
