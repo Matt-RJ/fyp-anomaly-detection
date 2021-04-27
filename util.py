@@ -280,9 +280,16 @@ def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
         centroids = clusterer.cluster_centers_
         nearest_centroid = np.copy(centroids[nearest_centroid_idx])
         pos = int(i * slide_len)
-        reconstruction[pos:pos+segment_len] += nearest_centroid[0:len(reconstruction[pos:pos+segment_len])]
+        reconstruction[pos:pos+segment_len] += nearest_centroid
 
-    # TODO: Fix reconstruction values of first and final segments dropping off rapidly.
+        # Extrapolating first and last segments to prevent sharp dips in the reconstruction.
+        # Not particularly efficient. Too bad!
+        half_seg = int(segment_len/2)
+        half_centr = int(len(nearest_centroid)/2)
+        if (i == 0):
+            reconstruction[pos:pos+half_seg] += nearest_centroid[half_centr:]
+        if (i == len(test_segments)-1):
+            reconstruction[pos+half_seg:] += nearest_centroid[:half_centr]
 
     df['Reconstructed_Values'] = reconstruction
     df['Reconstruction_Error'] = abs(df['Reconstructed_Values'] - df.Values)
