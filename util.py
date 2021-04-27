@@ -30,11 +30,6 @@ def graph_metrics(dfs, xlim=None, ylims=[], ylabels=[], titles=[], figtext=None,
                 axs[i].set_title(titles[i], fontsize=30)
     plt.show()
 
-def get_config(config_file):
-    """Loads config JSON from a given file path."""
-    with open(config_file, 'r') as file:
-        return json.load(file)
-
 def json_to_pandas(filepath):
     """Loads a data frame from CloudWatch metric JSON file."""
     with open(filepath) as f:
