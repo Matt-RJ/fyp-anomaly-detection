@@ -49,13 +49,15 @@ def json_to_pandas(filepath, timezone='Europe/Dublin'):
             dfs[data[i]["Label"]] = df
     return dfs
 
-def load_releases(filepath):
+def load_releases(filepath, timezone='Europe/Dublin'):
     """Loads service release info from a json file."""
     with open(filepath) as f:
         df = pd.DataFrame(json.load(f))
 
         # Timestamp conversion
         df['timestamp'] = df['timestamp'].apply(lambda x: pd.to_datetime(x, unit='s', utc=True))
+        # TODO: POOT HERE
+        df['timestamp'] = df['timestamp'].dt.tz_convert(timezone)
         
         # Cleanup
         df = df.rename(columns={'timestamp': 'Timestamps', 'serviceName': 'ServiceNames'})

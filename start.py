@@ -14,7 +14,7 @@ def test_k_means(metric_file=None):
     df_train_filepath    = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
     df_test_filepath     = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
     df_releases_filepath = '../ExportedMetrics/releases.json',
-    metric_name          = 'ConcurrentExecutions',
+    metric_name          = 'Duration',
     df_test_service_name = 'ServiceA'
   )
   detector.reconstruction_plot()
@@ -32,11 +32,11 @@ def test_aws_k_means(lambda_name):
     start_datetime=datetime.now(tz=detector.timezone)-timedelta(hours=6),
   )
 
-def test_isolation_forest(metric_file):
+def test_isolation_forest(metric_file=None):
   """Demonstrates isolation forest anomaly detection."""
   print('Testing Isolation Forest Anomaly Detection')
   detector = IsolationForestAnomalyDetector()
-  detector.contamination = 0.01
+  detector.contamination = 0.005
   detector.release_train_test(
     df_train_filepath    = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
     df_test_filepath     = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
@@ -54,9 +54,9 @@ def test_aws_isolation_forest(lambda_name):
     start_datetime=datetime.now(tz=detector.timezone)-timedelta(hours=6)
   )
 
-# test_k_means()
+test_k_means()
 # print('\n\n')
-# test_isolation_forest()
+test_isolation_forest()
 
 # test_aws_k_means('fyp-image-processor')
-test_aws_isolation_forest('fyp-image-processor')
+# test_aws_isolation_forest('fyp-image-processor')
