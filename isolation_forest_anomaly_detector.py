@@ -175,8 +175,8 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
       self.test('Residual_Values')
       new_anomalies = self.get_anomaly_count(after=start_time, anomaly_feature='Residual_Values_Anomalies')
       print('NEW ANOMALIES:', new_anomalies)
-      # if (new_anomalies > 0):
-      self.anomaly_plot(feature='Residual_Values_Anomalies', title=f'Isolation Forest Anomaly Detection ({lambda_function_name})')
+      if (new_anomalies > 0):
+        self.anomaly_plot(feature='Residual_Values_Anomalies', title=f'Isolation Forest Anomaly Detection ({lambda_function_name})')
       print(f'Next test in {refresh_frequency.total_seconds()/60} minute(s)...')
       sleep(refresh_frequency.total_seconds())
     print('Monitoring complete.')
