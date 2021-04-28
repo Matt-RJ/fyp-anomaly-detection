@@ -1,6 +1,8 @@
 from anomaly_detector import AnomalyDetector
 from sklearn.ensemble import IsolationForest
 from statsmodels.tsa.seasonal import seasonal_decompose
+from time import sleep
+from datetime import datetime, timedelta
 
 import util
 
@@ -9,7 +11,7 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
   def __init__(self):
     super().__init__()
     self._stl_decomp_period = 50
-    self._contamination = 'auto'
+    self._contamination = 0.01
     self._isolation_forest = None
     self._max_features = 1.0
     self._n_estimators = 50
@@ -151,6 +153,33 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
     # iso_forest.predict creates an inlier feature (1=inlier, -1=anomaly). Remapping 
     df[anomaly_feature] = df[anomaly_feature].map(lambda x: 0 if x == 1 else 1)
     print('Testing complete.')
+
+  def start_monitoring_lambda(self, lambda_function_name, start_datetime=None,
+                              refresh_frequency=timedelta(minutes=1), monitor_duration=timedelta(minutes=30)):
+    """ Begins monitoring an AWS Lambda function for anomalies."""
+    start_time = datetime.now(tz=self.timezone)
+    while (datetime.now(tz=self.timezone) < start_time + monitor_duration):
+      # Loading metrics
+      self.download_lambda_metrics(
+        function_name=lambda_function_name,
+        load=True
+      )
+      self.clean_df()
+      self.decompose_df()
+
+      # Optional df truncation
+      if (start_datetime):
+        self._df = self.df.loc[self.df.Timestamps >= start_datetime]
+
+      self.train('Residual_Values')
+      self.test('Residual_Values')
+      new_anomalies = self.get_anomaly_count(after=start_time, anomaly_feature='Residual_Values_Anomalies')
+      print('NEW ANOMALIES:', new_anomalies)
+      # if (new_anomalies > 0):
+      self.anomaly_plot(feature='Residual_Values_Anomalies', title=f'Isolation Forest Anomaly Detection ({lambda_function_name})')
+      print(f'Next test in {refresh_frequency.total_seconds()/60} minute(s)...')
+      sleep(refresh_frequency.total_seconds())
+    print('Monitoring complete.')
 
   def anomaly_plot(self, feature, title='Isolation Forest Anomaly Detection'):
     """Displays a graph with anomalies."""

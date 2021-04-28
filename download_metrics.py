@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
 import boto3
+from pytz import timezone as tzone
 import json
 
 cw_client = boto3.client('cloudwatch')
 
-def download_lambda_metric(function_name, start_time=datetime.now()-timedelta(days=1), end_time=datetime.now(), out_file='./metric.json'):
+def download_lambda_metric(function_name, start_time=datetime.now()-timedelta(weeks=1), end_time=datetime.now(), out_file='./metric.json', timezone='Europe/Dublin'):
   """Downloads a given Lambda metric's Duration and ConcurrentExecutions metrics."""
-  
   queries = [
     {
       'Id': 'm1',
@@ -48,14 +48,15 @@ def download_lambda_metric(function_name, start_time=datetime.now()-timedelta(da
   res = cw_client.get_metric_data(
     MetricDataQueries=queries,
     StartTime=start_time,
-    EndTime=end_time,
+    EndTime=end_time
   )
 
   # JSON can't parse datetime objects that boto3 returns; converting to timestamp strings.
   for i, metric in enumerate(res['MetricDataResults']):
     res['MetricDataResults'][i]['Timestamps'] = list(
-      map(lambda x: x.strftime('%Y-%m-%dT%H:%M:%S'), metric['Timestamps'])
+      map(lambda x: x.astimezone(tzone(timezone)).strftime('%Y-%m-%dT%H:%M:%S%z'), metric['Timestamps'])
     )
+    
 
   res = res['MetricDataResults']
 
@@ -64,3 +65,5 @@ def download_lambda_metric(function_name, start_time=datetime.now()-timedelta(da
   file.close()
 
   return res
+
+download_lambda_metric('fyp-image-processor')

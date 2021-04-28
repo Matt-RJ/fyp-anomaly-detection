@@ -30,7 +30,7 @@ def graph_metrics(dfs, xlim=None, ylims=[], ylabels=[], titles=[], figtext=None,
                 axs[i].set_title(titles[i], fontsize=30)
     plt.show()
 
-def json_to_pandas(filepath):
+def json_to_pandas(filepath, timezone='Europe/Dublin'):
     """Loads a data frame from CloudWatch metric JSON file."""
     with open(filepath) as f:
         data = json.load(f)
@@ -45,6 +45,7 @@ def json_to_pandas(filepath):
                 "Timestamps": data[i]["Timestamps"],
                 "Values": data[i]["Values"]
             })
+            df.Timestamps = df.Timestamps.dt.tz_convert(timezone)
             dfs[data[i]["Label"]] = df
     return dfs
 
@@ -97,8 +98,7 @@ def calculate_release_point_feature(df, df_releases):
 def calculate_post_release_feature(df, post_release_timedelta):
     """Adds a new feature 'Post_Releases' to df."""
     if 'Release_Point' not in df:
-        print('Missing \'Release_Point\' feature. Run util.calculate_release_point_feature() first (df not modified).')
-        return df
+        raise ValueError('Missing \'Release_Point\' feature. Run util.calculate_release_point_feature() first (df not modified).')
     df['Post_Release'] = 0
     release_points = df.loc[df['Release_Point'] == 1]
     post_releases = []
@@ -120,7 +120,7 @@ def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
     feature: feature name of whether the data point is anomalous\n
     anomalous_value: the value an anomalous value has\n
     replace_value: the value that a non-anomalous value has\n
-    min_consec: minimum size of an anomaly cluster - smaller clusters are set with replace_value
+    min_consec: minimum size of an anomaly cluster - smaller clusters of anomalies are replaced with replace_value
     """
     potential_anomalies = df.loc[df[feature] == anomalous_value].index.tolist()
     anomalies = []
@@ -268,7 +268,6 @@ def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
     """
     window_rads = np.linspace(0, np.pi, segment_len)
     bell_curve = np.sin(window_rads) ** 2
-
     slide_len = int(segment_len/2)
     test_segments = sliding_chunker(df, segment_len, slide_len)
     reconstruction = np.zeros(len(df))
@@ -284,12 +283,12 @@ def reconstruct(df, feature, clusterer, segment_len, reconstruction_quantile):
 
         # Extrapolating first and last segments to prevent sharp dips in the reconstruction.
         # Not particularly efficient. Too bad!
-        half_seg = int(segment_len/2)
+        half_seg = int(len(segment)/2)
         half_centr = int(len(nearest_centroid)/2)
         if (i == 0):
             reconstruction[pos:pos+half_seg] += nearest_centroid[half_centr:]
         if (i == len(test_segments)-1):
-            reconstruction[pos+half_seg:] += nearest_centroid[:half_centr]
+            reconstruction[pos+half_centr:] += nearest_centroid[:half_centr]
 
     df['Reconstructed_Values'] = reconstruction
     df['Reconstruction_Error'] = abs(df['Reconstructed_Values'] - df.Values)
@@ -337,8 +336,6 @@ def anomaly_plot(df, anomaly_feature, title='Figure'):
 def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_feature='Anomalies', title='Figure'):
     import numpy.ma as ma
 
-    values_inside_release_threshold = df.loc[df.Post_Release == 1]
-    values_outside_release_threshold = df.loc[df.Post_Release == 0]
     release_points = df.loc[df.Release_Point == 1]
 
     # Anomalies not soon after a release
@@ -353,19 +350,17 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_
     plt.ylabel(metric_name)
 
 
-    # Not close to release
-    mc = ma.array(df.Values.values)
-
-    mc[(df.Post_Release == 1) | (df.Gap)] = ma.masked
-    plt.plot(df.Timestamps.values, mc, color='silver')
-
     # Close to release
     mc = ma.array(df.Values.values)
     mc[(df.Post_Release == 0) | (df.Gap)] = ma.masked
     plt.plot(df.Timestamps.values, mc, color='dimgrey')
-
-    plt.plot(anomalies.Timestamps, anomalies.Values, 'o', color='blue')
     plt.plot(post_release_anomalies.Timestamps, post_release_anomalies.Values, 's', color='red')
+
+    # Not close to release
+    mc = ma.array(df.Values.values)
+    mc[(df.Post_Release == 1) | (df.Gap)] = ma.masked
+    plt.plot(df.Timestamps.values, mc, color='silver')
+    plt.plot(anomalies.Timestamps, anomalies.Values, 'o', color='blue')
 
     # Release date lines
     for release in release_points.Timestamps:
@@ -374,9 +369,9 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_
     plt.title(title)
     plt.legend([
         f'Values within release threshold ({post_release_threshold})',
+        'Anomalies within the release threshold',
         f'Values outside release threshold',
         'Anomalies outside the release threshold',
-        'Anomalies within the release threshold',
         'Release points'
     ], loc=2)
 

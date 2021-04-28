@@ -70,3 +70,6 @@ data/**
 
 # Output graphs, etc.
 output/**
+
+# Images for automatic use case running
+use-case-runner/images/*

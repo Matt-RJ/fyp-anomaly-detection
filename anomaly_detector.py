@@ -1,5 +1,7 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from pytz import timezone
 import util
+from download_metrics import download_lambda_metric
 from abc import ABC, abstractmethod
 
 class AnomalyDetector(ABC, object):
@@ -14,6 +16,7 @@ class AnomalyDetector(ABC, object):
     self._df = None
     self._df_releases = None
     self._train_end_datetime = None
+    self._timezone = timezone('Europe/Dublin')
 
   @property
   def graph_gap_threshold(self):
@@ -63,6 +66,14 @@ class AnomalyDetector(ABC, object):
   def df(self, df):
     self._df = df
 
+  @property
+  def timezone(self):
+    return self._timezone
+
+  @timezone.setter
+  def timezone(self, timezone):
+    self._timezone = timezone
+
   def load_df(self, filepath, metric_name):
     """Loads an exported CloudWatch .json file and converts it to a data frame."""
     print(f'Loading df from {filepath}...')
@@ -91,7 +102,7 @@ class AnomalyDetector(ABC, object):
   def clean_df(self):
     """Cleans the currently-loaded data frame."""
     if (self.df is None):
-      raise TypeError('No data frame loaded. Use .df(filepath) first.')
+      raise TypeError('No data frame loaded. Use .load_df(filepath) first.')
 
     # Gap feature for not drawing lines between two distant data points when plotting
     self.df['Gap'] = (self.df.Timestamps.diff() >= self.graph_gap_threshold).astype(int)
@@ -122,6 +133,24 @@ class AnomalyDetector(ABC, object):
     self.df = util.calculate_release_point_feature(self.df, releases)
     self.df = util.calculate_post_release_feature(self.df, self.post_release_threshold)
 
+  def download_lambda_metrics(self, function_name, start_time=datetime.now()-timedelta(weeks=1), end_time=datetime.now(), out_file='./lambda-metrics.json', load=False, metric_name='Duration'):
+    """Downloads a Lambda function's Duration and ConcurrentExecutions metrics to a .json file. If load=True, then load the metric into df."""
+    download_lambda_metric(function_name, start_time, end_time, out_file)
+    if (load):
+      self.load_df(filepath=out_file, metric_name=metric_name)
+
+  def get_anomaly_count(self, after=None, anomaly_feature='Anomalies', anomalous_value=1):
+    """Gets the total number of anomalies in df, or after a given datetime."""
+    if (self.df is None):
+      raise TypeError('No data frame loaded. Use .load_df(filepath) first.')
+    if (anomaly_feature not in self.df):
+      raise ValueError(f'Anomaly feature \'{anomaly_feature}\' missing.')
+
+    if (after):
+      return len(self.df[(self.df.Timestamps >= after) & (self.df[anomaly_feature] == anomalous_value)])
+    else:
+      return len(self.df[(self.df[anomaly_feature] == anomalous_value)])
+
   @abstractmethod
   def train(self, feature='Values', df_slice=None):
     """Trains the model with the currently-loaded data frame."""
@@ -134,10 +163,25 @@ class AnomalyDetector(ABC, object):
 
   @abstractmethod
   def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name):
-    """Performs training on a given train metric, then performs anomaly detection on a given test metric. Displays and counts post-release anomalies."""
+    """Performs training on a given metric, then performs anomaly detection on another (or same) metric. Displays and counts post-release anomalies."""
     pass
 
   @abstractmethod
   def anomaly_plot(self, title='Figure'):
     """Displays a graph with anomalies."""
     pass
+
+  @abstractmethod
+  def start_monitoring_lambda(self, lambda_function_name, start_datetime=None,
+                              refresh_frequency=timedelta(minutes=1), monitor_duration=timedelta(minutes=30)):
+    """ Begins monitoring an AWS Lambda function for anomalies."""
+    pass
+
+  # @abstractmethod
+  # def report(self, anomaly_feature):
+  #   """Returns a summary report."""
+  #   if (self.df is None):
+  #     raise TypeError('No data frame loaded. Use .load_df(filepath) first.')
+  #   report = {}
+  #   report['Total_Anomalies'] = None
+  #   pass # TODO: Implement

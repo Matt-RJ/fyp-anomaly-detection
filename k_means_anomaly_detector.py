@@ -1,5 +1,8 @@
 from anomaly_detector import AnomalyDetector
 from sklearn.cluster import KMeans
+from datetime import datetime, timedelta
+from time import sleep
+import pytz
 import util
 
 class KMeansAnomalyDetector(AnomalyDetector):
@@ -74,7 +77,7 @@ class KMeansAnomalyDetector(AnomalyDetector):
       df = df[df_slice[0]:df_slice[1]]
 
     print('Starting training with currently-loaded data frame...')
-    df, segments = util.window_df(df, segment_len=self.segment_len, slide_len=self.slide_len)
+    self.df, segments = util.window_df(df, segment_len=self.segment_len, slide_len=self.slide_len)
     windowed_segments = util.normalize_segments(segments, feature=feature, segment_len=self.segment_len)
 
     X = list(map(lambda x: x[feature], windowed_segments))
@@ -90,6 +93,9 @@ class KMeansAnomalyDetector(AnomalyDetector):
     
   def reconstruct(self, feature='Values'):
     """Performs data frame reconstruction with clustering."""
+
+    # Need to drop extra rows from the beginning again so that len(self.df) % segment_len = 0
+    self.df = util.window_df(self.df, segment_len=self.segment_len, slide_len=self.slide_len)[0]
     self.df = util.reconstruct(self.df, feature, self.clusterer, self.segment_len, self.reconstruction_quantile)
     self.df = util.limit_anomalies(self.df, 'Anomalies', -1, 1, self.anomaly_neighbor_limit)
 
@@ -99,6 +105,32 @@ class KMeansAnomalyDetector(AnomalyDetector):
     print('Reconstructing...')
     self.reconstruct(feature)
     print('Testing complete.')
+
+  def start_monitoring_lambda(self, lambda_function_name, start_datetime=None,
+                              refresh_frequency=timedelta(minutes=1), monitor_duration=timedelta(minutes=30)):
+    """ Begins monitoring an AWS Lambda function for anomalies."""
+    start_time = datetime.now(tz=self.timezone)
+    while (datetime.now(tz=self.timezone) < start_time + monitor_duration):
+      # Loading metrics from CloudWatch
+      self.download_lambda_metrics(
+        function_name=lambda_function_name,
+        load=True
+      )
+      self.clean_df()
+
+      # Optional df truncation
+      if (start_datetime):
+        self._df = self.df.loc[self.df.Timestamps >= start_datetime]
+      self.train()
+      self.test()
+      new_anomalies = self.get_anomaly_count(after=start_time)
+      print('NEW ANOMALIES:', new_anomalies)
+      if (new_anomalies > 0):
+        self.anomaly_plot(feature='Anomalies', title=f'K-Means Anomaly Detection ({lambda_function_name})')
+      print(f'Next test in {refresh_frequency.total_seconds()/60} minute(s)...')
+      sleep(refresh_frequency.total_seconds())
+    self.reconstruction_plot()
+    print('Monitoring complete.')
 
   def reconstruction_plot(self):
     """Displays a reconstruction plot."""
