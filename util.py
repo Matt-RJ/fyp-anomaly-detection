@@ -56,7 +56,6 @@ def load_releases(filepath, timezone='Europe/Dublin'):
 
         # Timestamp conversion
         df['timestamp'] = df['timestamp'].apply(lambda x: pd.to_datetime(x, unit='s', utc=True))
-        # TODO: POOT HERE
         df['timestamp'] = df['timestamp'].dt.tz_convert(timezone)
         
         # Cleanup
@@ -336,6 +335,8 @@ def anomaly_plot(df, anomaly_feature, title='Figure'):
     plt.show()
 
 def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_feature='Anomalies', title='Figure'):
+    old_font_size = matplotlib.rcParams['font.size']
+    matplotlib.rc('font', **{ 'size': 20 })
     import numpy.ma as ma
 
     release_points = df.loc[df.Release_Point == 1]
@@ -346,8 +347,8 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_
     # Anomalies soon after a release
     post_release_anomalies = df.loc[(df[anomaly_feature] == 1) & (df.Post_Release == 1)]
 
-    from matplotlib.pyplot import figure
     plt.figure(figsize=(30,15))
+    plt.tick_params(axis='both', labelsize=17, length=10, width=2)
     plt.xlabel("Timestamps")
     plt.ylabel(metric_name)
 
@@ -381,13 +382,9 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_
 
     # # Output .png & .pdf files
     # import os
-
-    # savedir = f'{os.getcwd()}\\output\\k-means\\{SERVICE}\\{LAMBDA}'
-    # if not os.path.exists(savedir):
-    #     os.makedirs(savedir)
-    # plt.savefig(f'{savedir}\\{METRIC}.pdf', transparent=True, bbox_tight="inches")
-    # plt.savefig(f'{savedir}\\{METRIC}.png')
+    # plt.savefig(f'output.pdf', bbox_inches='tight')
+    # # plt.savefig(f'{savedir}\\{METRIC}.png')
 
     plt.show()
-
+    matplotlib.rc('font', **{ 'size': old_font_size })
     print(f'Post-release anomalies: {len(post_release_anomalies)} of {len(anomalies)} total values anomalies')

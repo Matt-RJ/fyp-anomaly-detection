@@ -120,7 +120,7 @@ class KMeansAnomalyDetector(AnomalyDetector):
 
       # Optional df truncation
       if (start_datetime):
-        self._df = self.df.loc[self.df.Timestamps >= start_datetime]
+        self.df = self.df.loc[self.df.Timestamps >= start_datetime]
       self.train()
       self.test()
       new_anomalies = self.get_anomaly_count(after=start_time)

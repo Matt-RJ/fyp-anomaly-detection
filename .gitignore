@@ -73,3 +73,6 @@ output/**
 
 # Images for automatic use case running
 use-case-runner/images/*
+
+# Generated graphs
+*.pdf

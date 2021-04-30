@@ -3,6 +3,8 @@ from sklearn.ensemble import IsolationForest
 from statsmodels.tsa.seasonal import seasonal_decompose
 from time import sleep
 from datetime import datetime, timedelta
+import matplotlib
+import matplotlib.pyplot as plt
 
 import util
 
@@ -16,6 +18,7 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
     self._max_features = 1.0
     self._n_estimators = 50
     self._max_samples = 'auto'
+    self._train_end_datetime = None
 
   @property
   def stl_decomp_period(self):
@@ -70,6 +73,14 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
   @max_samples.setter
   def max_samples(self, max_samples):
     self._max_samples = max_samples
+
+  @property
+  def train_end_datetime(self):
+    return self._train_end_datetime
+
+  @train_end_datetime.setter
+  def train_end_datetime(self, train_end_datetime):
+    self._train_end_datetime = train_end_datetime
   
   def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name):
     """
@@ -133,13 +144,56 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
         df.Values,
         period=self.stl_decomp_period,
         extrapolate_trend='freq',
-        model='multiplicative'
+        model='additive',
+        two_sided=False
     )
     df['Trend_Values'] = decompose_result.trend
     df['Seasonal_Values'] = decompose_result.seasonal
     df['Residual_Values'] = decompose_result.resid
 
     self.df = df
+
+  def decomposition_plot(self, suptitle='STL Decomposition', row_slice=None):
+    """Plots the original df plus the decomposed trend, seasonal, and residual components."""
+    if (self.df is None):
+      raise TypeError('No df loaded. Use .load_df(filepath) first.')
+    old_font_size = matplotlib.rcParams['font.size']
+    matplotlib.rc('font', **{ 'size': 8 })
+
+    df = self.df.copy()
+
+    decompose_result = seasonal_decompose(
+        df.Values,
+        period=self.stl_decomp_period,
+        extrapolate_trend='freq',
+        model='multiplicative',
+    )
+
+    trend = decompose_result.trend
+    seasonal = decompose_result.seasonal
+    resid = decompose_result.resid
+    if (row_slice):
+        df = df[row_slice[0]:row_slice[1]]
+        trend = trend[row_slice[0]:row_slice[1]]
+        seasonal = seasonal[row_slice[0]:row_slice[1]]
+        resid = resid[row_slice[0]:row_slice[1]]
+
+    fig, axs = plt.subplots(4,1, figsize=(10,12), sharex=False)
+    fig.suptitle(suptitle)
+    axs[0].plot(df.Timestamps, df.Values)
+    axs[0].set_title('Original values')
+    axs[1].plot(df.Timestamps, trend)
+    axs[1].set_title('Trend')
+    axs[2].plot(df.Timestamps, seasonal)
+    axs[2].set_title('Seasonal')
+    axs[3].plot(df.Timestamps, resid)
+    axs[3].set_title('Residual')
+    for ax in axs:
+      ax.set_ylabel('Values')
+    plt.tight_layout(rect=[0, 0.03, 1, 0.99])
+    plt.savefig(f'output.pdf', bbox_inches='tight')
+    plt.show()
+    matplotlib.rc('font', **{ 'size': old_font_size })
 
   def test(self, feature='Values'):
     """Performs anomaly detection with the previously-trained data."""
@@ -169,7 +223,7 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
 
       # Optional df truncation
       if (start_datetime):
-        self._df = self.df.loc[self.df.Timestamps >= start_datetime]
+        self.df = self.df.loc[self.df.Timestamps >= start_datetime]
 
       self.train('Residual_Values')
       self.test('Residual_Values')
