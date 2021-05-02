@@ -162,7 +162,7 @@ class AnomalyDetector(ABC, object):
     pass
 
   @abstractmethod
-  def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name):
+  def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name, df_test_lambda_name, show_plot=True):
     """Performs training on a given metric, then performs anomaly detection on another (or same) metric. Displays and counts post-release anomalies."""
     pass
 
@@ -176,12 +176,3 @@ class AnomalyDetector(ABC, object):
                               refresh_frequency=timedelta(minutes=1), monitor_duration=timedelta(minutes=30)):
     """ Begins monitoring an AWS Lambda function for anomalies."""
     pass
-
-  # @abstractmethod
-  # def report(self, anomaly_feature):
-  #   """Returns a summary report."""
-  #   if (self.df is None):
-  #     raise TypeError('No data frame loaded. Use .load_df(filepath) first.')
-  #   report = {}
-  #   report['Total_Anomalies'] = None
-  #   pass # TODO: Implement

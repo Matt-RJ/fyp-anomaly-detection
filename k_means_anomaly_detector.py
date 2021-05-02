@@ -56,7 +56,8 @@ class KMeansAnomalyDetector(AnomalyDetector):
   def reconstruction_quantile(self, reconstruction_quantile):
     self._reconstruction_quantile = reconstruction_quantile
   
-  def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name):
+  def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name,
+                         df_test_service_name, df_test_lambda_name, show_plot=True, save_fig=False):
     """Performs training on a given metric, then performs anomaly detection on another (or same) metric. Displays and counts post-release anomalies."""
     
     self.load_df(df_train_filepath, metric_name)
@@ -66,7 +67,17 @@ class KMeansAnomalyDetector(AnomalyDetector):
     self.clean_df()
     self.create_release_features(df_test_service_name)
     self.reconstruct()
-    util.anomaly_plot_with_releases(self.df, metric_name, self.post_release_threshold, title='K-Means Anomaly Detection')
+    util.anomaly_plot_with_releases(
+      self.df,
+      metric_name,
+      self.post_release_threshold,
+      title=f'K-Means Anomaly Detection - {df_test_service_name}, {df_test_lambda_name} ({metric_name})',
+      model='KMeans',
+      service_name=df_test_service_name,
+      lambda_name=df_test_lambda_name,
+      show_plot=show_plot,
+      save_fig=save_fig
+    )
 
   def train(self, feature='Values', df_slice=None):
     """Trains the model with the currently-loaded data frame."""
@@ -97,7 +108,7 @@ class KMeansAnomalyDetector(AnomalyDetector):
     # Need to drop extra rows from the beginning again so that len(self.df) % segment_len = 0
     self.df = util.window_df(self.df, segment_len=self.segment_len, slide_len=self.slide_len)[0]
     self.df = util.reconstruct(self.df, feature, self.clusterer, self.segment_len, self.reconstruction_quantile)
-    self.df = util.limit_anomalies(self.df, 'Anomalies', -1, 1, self.anomaly_neighbor_limit)
+    self.df = util.limit_anomalies(self.df, 'Anomalies', 0, 1, self.anomaly_neighbor_limit)
 
   def test(self, feature='Values'):
     """Performs anomaly detection with the previously-trained data."""

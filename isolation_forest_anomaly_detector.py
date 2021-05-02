@@ -82,7 +82,8 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
   def train_end_datetime(self, train_end_datetime):
     self._train_end_datetime = train_end_datetime
   
-  def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name, df_test_service_name):
+  def release_train_test(self, df_train_filepath, df_test_filepath, df_releases_filepath, metric_name,
+                         df_test_service_name, df_test_lambda_name, show_plot=True, save_fig=False):
     """
     Performs training on a given metric, then performs anomaly detection on another (or same) metric. Displays and counts post-release anomalies.\n
     Training and testing are performed twice - once for the original values and once for the decomposed residual values.
@@ -95,16 +96,22 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
     self.test()
     self.load_df(df_test_filepath, metric_name)
     self.clean_df()
-    self.decompose_df()
     self.load_df_releases(df_releases_filepath)
     self.create_release_features(df_test_service_name)
+    self.decompose_df()
     self.test('Residual_Values')
+    self.df = util.limit_anomalies(self.df, 'Residual_Values_Anomalies', 0, 1, self.anomaly_neighbor_limit)
     util.anomaly_plot_with_releases(
       self.df,
       metric_name,
       self.post_release_threshold,
       anomaly_feature='Residual_Values_Anomalies',
-      title='Isolation Forest Anomaly Detection'
+      title=f'Isolation Forest Anomaly Detection - {df_test_service_name}, {df_test_lambda_name} ({metric_name})',
+      model='IsolationForest',
+      service_name=df_test_service_name,
+      lambda_name=df_test_lambda_name,
+      show_plot=show_plot,
+      save_fig=save_fig
     )
 
   def train(self, feature='Values', df_slice=None):
@@ -204,7 +211,8 @@ class IsolationForestAnomalyDetector(AnomalyDetector):
     anomaly_feature = f'{feature}_Anomalies'
     df[score_feature] = iso_forest.decision_function(df[[feature]])
     df[anomaly_feature] = iso_forest.predict(df[[feature]])
-    # iso_forest.predict creates an inlier feature (1=inlier, -1=anomaly). Remapping 
+
+    # iso_forest.predict creates an inlier feature (1=inlier, -1=anomaly). Remapping to 0 and 1.
     df[anomaly_feature] = df[anomaly_feature].map(lambda x: 0 if x == 1 else 1)
     print('Testing complete.')
 

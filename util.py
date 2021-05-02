@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import json
 import numpy as np
@@ -149,7 +150,7 @@ def limit_anomalies(df, feature, anomalous_value, replace_value, min_consec):
 def window_df(df, segment_len=32, slide_len=2):
     """Splits up a dataframe into overlapping segments."""
     # Removing n oldest rows so segments divide evenly into df rows
-    to_remove = len(df) % slide_len
+    to_remove = len(df) % segment_len
     if (to_remove > 0):
         df = df.iloc[to_remove:]
         print(f'Dropped {to_remove} row(s) from the beginning')
@@ -334,7 +335,8 @@ def anomaly_plot(df, anomaly_feature, title='Figure'):
     plt.plot(anomalies.Timestamps, anomalies.Values, 'o', color='red')
     plt.show()
 
-def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_feature='Anomalies', title='Figure'):
+def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_feature='Anomalies', service_name=None,
+                               lambda_name=None, model='model', title='Figure', show_plot=True, save_fig=False):
     old_font_size = matplotlib.rcParams['font.size']
     matplotlib.rc('font', **{ 'size': 20 })
     import numpy.ma as ma
@@ -380,11 +382,13 @@ def anomaly_plot_with_releases(df, metric_name, post_release_threshold, anomaly_
 
     # plt.ylim(0, 2000)
 
-    # # Output .png & .pdf files
-    # import os
-    # plt.savefig(f'output.pdf', bbox_inches='tight')
-    # # plt.savefig(f'{savedir}\\{METRIC}.png')
+    # Output .png & .pdf files
+    savedir = f'{os.getcwd()}\\output\\results\\{service_name}\\{lambda_name}\\{metric_name}'
+    if not os.path.exists(savedir):
+        os.makedirs(savedir)
+    plt.savefig(f'{savedir}\\{model}.pdf', bbox_inches='tight')
 
-    plt.show()
+    if (show_plot):
+        plt.show(block=False)
     matplotlib.rc('font', **{ 'size': old_font_size })
     print(f'Post-release anomalies: {len(post_release_anomalies)} of {len(anomalies)} total values anomalies')

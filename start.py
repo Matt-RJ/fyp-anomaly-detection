@@ -8,7 +8,7 @@ def test_k_means(metric_file=None):
   detector = KMeansAnomalyDetector(
     n_clusters=150,
     segment_len=32,
-    slide_len=32
+    slide_len=2
   )
   detector.reconstruction_quantile = 0.9
   detector.release_train_test(
@@ -39,7 +39,7 @@ def test_aws_k_means(lambda_name):
   detector = KMeansAnomalyDetector(
     n_clusters=150,
     segment_len=32,
-    slide_len=32
+    slide_len=2
   )
   detector.reconstruction_quantile = 0.99
   detector.start_monitoring_lambda(
@@ -56,9 +56,37 @@ def test_aws_isolation_forest(lambda_name):
     start_datetime=datetime.now(tz=detector.timezone)-timedelta(hours=6)
   )
 
-# test_k_means()
-# print('\n\n')
-test_isolation_forest()
+def test_both(service_name, lambda_name):
+  """ Tests both k-means and isolation forest, saving the resulting graphs."""
+  k_means_detector = KMeansAnomalyDetector(
+    n_clusters=500,
+    segment_len=32,
+    slide_len=2
+  )
+  k_means_detector.reconstruction_quantile = 0.995
+  isolation_forest_detector = IsolationForestAnomalyDetector()
+  isolation_forest_detector.stl_decomp_period = 288
+  isolation_forest_detector.contamination = 0.005
 
+  for metric_name in ['Duration', 'ConcurrentExecutions']:
+    for detector in [isolation_forest_detector]:
+      try:
+        detector.release_train_test(
+          df_train_filepath    = f'../ExportedMetrics/{service_name}/{lambda_name}.json',
+          df_test_filepath     = f'../ExportedMetrics/{service_name}/{lambda_name}.json',
+          df_releases_filepath = f'../ExportedMetrics/releases.json',
+          metric_name          = metric_name,
+          df_test_service_name = service_name,
+          df_test_lambda_name = lambda_name,
+          show_plot=False,
+          save_fig=True
+        )
+      except Exception as e:
+        print(e)
+        
+
+# test_k_means()
+# test_isolation_forest()
 # test_aws_k_means('fyp-image-processor')
 # test_aws_isolation_forest('fyp-image-processor')
+# test_both('ServiceA', 'LambdaA')
