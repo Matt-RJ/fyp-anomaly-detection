@@ -46,6 +46,6 @@ Getting the anomaly detector to run requires the following:
   * **k_means_anomaly_detector.py**: Anomaly detector using k-means.
   * **isolation_forest_anomaly_detector.py**: Anomaly detector using isolation forest.
 * **util.py**: Contains various helper and graphing functions.
-* **download_metrics.py**: Contains functionality for exporting /';;;Lambda metrics from CloudWatch as a .json file.
+* **download_metrics.py**: Contains functionality for exporting Lambda metrics from CloudWatch as a .json file.
 * **use-case-runner**: Contains code for running the [use case](https://github.com/Matt-RJ/fyp-use-case).
 * **start.py**: Contains anomaly detector demo code.
