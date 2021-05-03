@@ -6,17 +6,18 @@ def test_k_means(metric_file=None):
   """Demonstrates k-means anomaly detection."""
   print('Testing K-Means Anomaly Detection')
   detector = KMeansAnomalyDetector(
-    n_clusters=150,
+    n_clusters=350,
     segment_len=32,
     slide_len=2
   )
-  detector.reconstruction_quantile = 0.9
+  detector.reconstruction_quantile = 0.995
   detector.release_train_test(
     df_train_filepath    = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
     df_test_filepath     = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
     df_releases_filepath = '../ExportedMetrics/releases.json',
-    metric_name          = 'Duration',
-    df_test_service_name = 'ServiceA'
+    metric_name          = 'ConcurrentExecutions',
+    df_test_service_name = 'ServiceA',
+    df_test_lambda_name  = 'LambdaB'
   )
   detector.reconstruction_plot()
 
@@ -30,7 +31,8 @@ def test_isolation_forest(metric_file=None):
     df_test_filepath     = metric_file or '../ExportedMetrics/ServiceA/LambdaB.json',
     df_releases_filepath = '../ExportedMetrics/releases.json',
     metric_name          = 'Duration',
-    df_test_service_name = 'ServiceA'
+    df_test_service_name = 'ServiceA',
+    df_test_lambda_name  = 'LambdaB'
   )
   detector.decomposition_plot('STL Decomposition (Service A Lambda B - Duration)')
 
@@ -85,7 +87,7 @@ def test_both(service_name, lambda_name):
         print(e)
         
 
-# test_k_means()
+test_k_means()
 # test_isolation_forest()
 # test_aws_k_means('fyp-image-processor')
 # test_aws_isolation_forest('fyp-image-processor')
