@@ -2,6 +2,12 @@
 
 This repo contains a part of my final year project for Applied Computing.
 
+Related repo: [fyp-use-case](https://github.com/Matt-RJ/fyp-use-case).
+
+## Demo Video
+
+The demo video that was submitted as part of the project can be found [here](https://www.youtube.com/watch?v=BNU7gm1Dd1Q).
+
 ## Description
 
 This program is an anomaly detection system for time series data, particularly, time series data from AWS Lambda functions. The anomaly detector has two types of models implemented: isolation forest and k-means. The detector has functionality for:
